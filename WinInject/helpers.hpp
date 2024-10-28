@@ -6,7 +6,7 @@ UINT PathToFileOffset(const std::string& path);
 
 DWORD GetMappedAddress(const DLL_DATA* DllData, DWORD VirtAddress, DWORD base);
 
-int FindModuleEntry(const char* name, DLL_DATA** buffer, bool LocalLoadedOnly = false);
+int FindModuleEntry(const char* name, DLL_DATA** buffer, bool LoaedImageLocally = false);
 
 void CreateUnicodeString(const char* str, UNICODE_STRING* uStr);
 

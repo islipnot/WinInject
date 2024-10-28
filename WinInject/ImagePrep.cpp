@@ -39,7 +39,7 @@ bool RelocateImage(const DLL_DATA* image)
 		RelocTable = reinterpret_cast<BASE_RELOCATION*>(reinterpret_cast<BYTE*>(RelocTable) + RelocTable->SizeOfBlock);
 	}
 
-	NDBG_OUT("Image relocated: " << image->DllName);
+	DNDBG_OUT("Image relocated: " << image->DllName);
 	return true;
 }
 
@@ -56,16 +56,18 @@ DWORD GetExportAddress(DLL_DATA* dll, const char* TargetName, EXPORT_INFO& info)
 
 		const DWORD FunctionRVA = info.EAT[static_cast<DWORD>(info.OrdinalTable[i])];
 
-		if (FunctionRVA < info.ExportDir->VirtualAddress && FunctionRVA >= info.ExportDir->VirtualAddress + info.ExportDir->Size)
+		if (FunctionRVA < info.ExportDir->VirtualAddress || FunctionRVA >= info.ExportDir->VirtualAddress + info.ExportDir->Size)
 		{
-			return GetLocalMappedRVA(dll, FunctionRVA); // RVA being outside of the export directory means it isn't a forwarder
+			return GetRemoteMappedRVA(dll, FunctionRVA); // RVA being outside of the export directory means it isn't a forwarder
 		}
+
+		return 1;
 
 		// Handling forwarder
 	}
 
-	//NERR_OUT("Failed to get export address: " << TargetName);
-	return 1;
+	NERR_OUT("Failed to get export address: " << TargetName);
+	return 0;
 }
 
 bool SnapImports(const DLL_DATA* image)

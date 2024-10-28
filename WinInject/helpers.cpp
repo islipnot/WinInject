@@ -1,6 +1,7 @@
 #include "pch.hpp"
 #include "mMap.hpp"
 #include "helpers.hpp"
+#include "ModuleResolve.hpp"
 
 UINT PathToFileOffset(const std::string& path)
 {
@@ -35,19 +36,31 @@ DWORD GetMappedAddress(const DLL_DATA* DllData, DWORD VirtAddress, DWORD base)
 	__fastfail(FAST_FAIL_INVALID_ARG); // done so that error handling isnt required on every call to GetMappedAddress
 }
 
-int FindModuleEntry(const char* name, DLL_DATA** buffer, bool LocalLoadedOnly)
+int FindModuleEntry(const char* name, DLL_DATA** buffer, bool LoadImageLocally)
 {
 	for (int i = 0; i < modules.size(); ++i)
 	{
-		if (!_stricmp(modules[i].DllName.c_str(), name))
-		{
-			if (modules[i].flags & RedirectModule)
-			{
-				i = modules[i].HostIndex;
-			}
-			else if (LocalLoadedOnly && !modules[i].NtHeader) return -2;
+		DLL_DATA* dll = &modules[i];
 
-			*buffer = &modules[i];
+		if (!_stricmp(dll->DllName.c_str(), name))
+		{
+			if (dll->flags & RedirectModule)
+			{
+				i = dll->HostIndex;
+				dll = &modules[i];
+			}
+			
+			if (LoadImageLocally && !dll->FirstSection)
+			{
+				dll->DllPath.reserve(MAX_PATH);
+
+				if (!GetModulePath(dll->DllName.c_str(), dll->DllPath.data()) || !LoadDll(dll->DllPath.c_str(), dll))
+				{
+					return -1;
+				}
+			}
+
+			*buffer = dll;
 			return i;
 		}
 	}

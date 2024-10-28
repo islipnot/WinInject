@@ -52,4 +52,6 @@ struct HASH_ENTRY // https://www.geoffchappell.com/studies/windows/win32/apisets
 
 // Forward declarations
 
+bool GetModulePath(const char* DllName, char* ResolvedPath);
+
 bool ResolveDependencies(UINT index);
