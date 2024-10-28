@@ -1,1 +1,2 @@
 # WinInject
+A 32 bit Windows 10 DLL injector, focused on manual map injection. Manual mapping logic is based on that of the Windows image loader. I know nobody will actually use this, but if you are using the code as a reference, understand that many assumptions regarding the injected DLLs are made. [WinLoad](https://github.com/islipnot/WinLoad), another project of mine, is a much more accurate and detailed representation of the image loader.
