@@ -58,7 +58,7 @@ DWORD GetExportAddress(DLL_DATA* dll, const char* TargetName, EXPORT_INFO& info)
 
 		if (FunctionRVA < info.ExportDir->VirtualAddress || FunctionRVA >= info.ExportDir->VirtualAddress + info.ExportDir->Size)
 		{
-			return GetRemoteMappedRVA(dll, FunctionRVA); // RVA being outside of the export directory means it isn't a forwarder
+			return dll->RemoteBase + FunctionRVA; // RVA being outside of the export directory means it isn't a forwarder
 		}
 
 		return 1;
