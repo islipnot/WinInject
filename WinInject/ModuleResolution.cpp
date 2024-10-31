@@ -270,14 +270,14 @@ bool ResolveDependencies(UINT index)
 	// Getting import directory table
 
 	const DWORD ImportTableVA = GetDataDirectory(dll->NtHeader, DIRECTORY_ENTRY_IMPORT).VirtualAddress;
-	const IMPORT_DESCRIPTOR* ImportDir = GetLocalMappedVA<IMPORT_DESCRIPTOR*>(dll, ImportTableVA);
+	const IMPORT_DESCRIPTOR* ImportDir = GetMappedVA<IMPORT_DESCRIPTOR*>(dll, ImportTableVA);
 	char* DllBase = dll->pLocalBase;
 
 	// Loading imported modules
 
 	while (ImportDir->FirstThunk)
 	{
-		const char* DllName = GetLocalMappedRVA<const char*>(dll, ImportDir->Name);
+		const char* DllName = GetMappedRVA<const char*>(dll, ImportDir->Name);
 
 		// Handling the dependency
 

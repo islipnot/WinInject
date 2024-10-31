@@ -23,8 +23,9 @@ typedef IMAGE_BASE_RELOCATION BASE_RELOCATION;
 enum DLL_DATA_FLAGS
 {
 	RedirectModule = 1,
-	RemoteLoaded = 2,
-	LocalLoaded = 4
+	RemoteLoaded   = 2,
+	LocalLoaded    = 4,
+	ManualMapped   = 8
 };
 
 // Structs

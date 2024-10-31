@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef IMG_PREP_INCLUDED
+	#include "ImagePrep.hpp"
+#endif
+
 // Forward declarations
 
 UINT PathToFileOffset(const std::string& path);
@@ -10,7 +14,9 @@ int FindModuleEntry(const char* name, DLL_DATA** buffer, bool LoaedImageLocally 
 
 void CreateUnicodeString(const char* str, UNICODE_STRING* uStr);
 
-// Functions
+void GetExportInfo(DLL_DATA* dll, EXPORT_INFO* ExportInfo);
+
+// Templates
 
 template <typename ret = DWORD> auto GetLocalMappedAddress(const DLL_DATA* DllData, DWORD VirtAddress) -> ret
 {
@@ -26,13 +32,9 @@ template <typename ret = DWORD> auto GetRemoteMappedAddress(const DLL_DATA* DllD
 
 /* RVA/VA resolution */
 
-#define GetLocalMappedRVA  GetLocalMappedAddress
+#define GetMappedRVA  GetLocalMappedAddress
 
-#define GetLocalMappedVA   GetLocalMappedAddress
-
-#define GetRemoteMappedRVA GetRemoteMappedAddress
-
-#define GetRemoteMappedVA  GetRemoteMappedAddress
+#define GetMappedVA   GetLocalMappedAddress
 
 /* General macros */
 

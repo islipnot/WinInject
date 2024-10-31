@@ -1,7 +1,7 @@
 #include "pch.hpp"
 #include "mMap.hpp"
-#include "helpers.hpp"
 #include "ImagePrep.hpp"
+#include "helpers.hpp"
 
 bool RelocateImage(const DLL_DATA* image)
 {
@@ -10,7 +10,7 @@ bool RelocateImage(const DLL_DATA* image)
 	// Getting base relocation table
 
 	const DATA_DIRECTORY* RelocTableData = &GetDataDirectory(image->NtHeader, DIRECTORY_ENTRY_BASERELOC);
-	BASE_RELOCATION* RelocTable = GetLocalMappedVA<BASE_RELOCATION*>(image, RelocTableData->VirtualAddress);
+	BASE_RELOCATION* RelocTable = GetMappedVA<BASE_RELOCATION*>(image, RelocTableData->VirtualAddress);
 	const BYTE* RelocTableEnd = reinterpret_cast<BYTE*>(RelocTable) + RelocTableData->Size;
 
 	const DWORD BaseDifference = image->RemoteBase - image->NtHeader->OptionalHeader.ImageBase;
@@ -30,7 +30,7 @@ bool RelocateImage(const DLL_DATA* image)
 			if (RelocEntry->Type == IMAGE_REL_BASED_ABSOLUTE)
 				continue;
 
-			DWORD* RelocAddress = GetLocalMappedVA<DWORD*>(image, RelocTable->VirtualAddress + RelocEntry->Offset);
+			DWORD* RelocAddress = GetMappedVA<DWORD*>(image, RelocTable->VirtualAddress + RelocEntry->Offset);
 			*RelocAddress += BaseDifference;
 
 			++RelocEntry;
@@ -49,21 +49,43 @@ DWORD GetExportAddress(DLL_DATA* dll, const char* TargetName, EXPORT_INFO& info)
 	{
 		// Check the name table for a matching export
 
-		const char* ExportName = GetLocalMappedRVA<const char*>(dll, info.NameTable[i]);
+		const char* ExportName = GetMappedRVA<const char*>(dll, info.NameTable[i]);
 		if (_stricmp(TargetName, ExportName) != 0) continue;
 
 		// Handle matching export if found
 
-		const DWORD FunctionRVA = info.EAT[static_cast<DWORD>(info.OrdinalTable[i])];
+		const DWORD ExportRVA = info.EAT[info.OrdinalTable[i]];
 
-		if (FunctionRVA < info.ExportDir->VirtualAddress || FunctionRVA >= info.ExportDir->VirtualAddress + info.ExportDir->Size)
+		if (ExportRVA < info.ExportDir->VirtualAddress || ExportRVA >= info.ExportDir->VirtualAddress + info.ExportDir->Size)
 		{
-			return dll->RemoteBase + FunctionRVA; // RVA being outside of the export directory means it isn't a forwarder
+			return dll->RemoteBase + ExportRVA; // RVA being outside of the export directory means it isn't a forwarder
 		}
 
-		return 1;
+		// Handling forwarders
 
-		// Handling forwarder
+		ExportName = GetMappedRVA<const char*>(dll, ExportRVA);
+
+		std::string forwarder = ExportName;
+		forwarder.erase(forwarder.find_last_of('.'));
+
+		if (forwarder.find('.') == std::string::npos)
+		{
+			forwarder += ".dll";
+		}
+
+		DLL_DATA* ForwarderEntry = nullptr;
+		if (FindModuleEntry(forwarder.c_str(), &ForwarderEntry, true) == -1)
+		{
+			return 0;
+		}
+
+		forwarder = ExportName;
+		forwarder.erase(0, forwarder.find_last_of('.') + 1);
+
+		EXPORT_INFO ForwarderExportInfo;
+		GetExportInfo(ForwarderEntry, &ForwarderExportInfo);
+
+		return GetExportAddress(ForwarderEntry, forwarder.c_str(), ForwarderExportInfo);
 	}
 
 	NERR_OUT("Failed to get export address: " << TargetName);
@@ -75,11 +97,11 @@ bool SnapImports(const DLL_DATA* image)
 	// ntdll.dll!LdrpSnapModule
 
 	const DWORD ImportTableVA = GetDataDirectory(image->NtHeader, DIRECTORY_ENTRY_IMPORT).VirtualAddress;
-	const IMPORT_DESCRIPTOR* ImportDir = GetLocalMappedVA<IMPORT_DESCRIPTOR*>(image, ImportTableVA);
+	const IMPORT_DESCRIPTOR* ImportDir = GetMappedVA<IMPORT_DESCRIPTOR*>(image, ImportTableVA);
 
 	while (ImportDir->FirstThunk)
 	{
-		const char* DllName = GetLocalMappedRVA<const char*>(image, ImportDir->Name);
+		const char* DllName = GetMappedRVA<const char*>(image, ImportDir->Name);
 
 		DLL_DATA* ImportedModule = nullptr;
 		if (FindModuleEntry(DllName, &ImportedModule, true) == -1)
@@ -95,19 +117,15 @@ bool SnapImports(const DLL_DATA* image)
 
 		// Import address/lookup tables
 
-		THUNK_DATA* IAT = GetLocalMappedRVA<THUNK_DATA*>(image, ImportDir->FirstThunk);
-		THUNK_DATA* ILT = GetLocalMappedRVA<THUNK_DATA*>(image, ImportDir->Characteristics);
+		THUNK_DATA* IAT = GetMappedRVA<THUNK_DATA*>(image, ImportDir->FirstThunk);
+		THUNK_DATA* ILT = GetMappedRVA<THUNK_DATA*>(image, ImportDir->Characteristics);
 
 		EXPORT_INFO ExportInfo;
-		ExportInfo.ExportDir    = &GetDataDirectory(ImportedModule->NtHeader, DIRECTORY_ENTRY_EXPORT);
-		ExportInfo.ExportTable  = GetLocalMappedVA<EXPORT_DIRECTORY*>(ImportedModule, ExportInfo.ExportDir->VirtualAddress);
-		ExportInfo.NameTable    = GetLocalMappedRVA<DWORD*>(ImportedModule, ExportInfo.ExportTable->AddressOfNames);
-		ExportInfo.OrdinalTable = GetLocalMappedRVA<WORD*>(ImportedModule,  ExportInfo.ExportTable->AddressOfNameOrdinals);
-		ExportInfo.EAT          = GetLocalMappedRVA<DWORD*>(ImportedModule, ExportInfo.ExportTable->AddressOfFunctions);
+		GetExportInfo(ImportedModule, &ExportInfo);
 
 		while (ILT->u1.Function) // Need to add ordinal import support
 		{
-			const char* ImportName = GetLocalMappedVA<IMPORT_BY_NAME*>(image, ILT->u1.ForwarderString)->Name;
+			const char* ImportName = GetMappedVA<IMPORT_BY_NAME*>(image, ILT->u1.ForwarderString)->Name;
 
 			const DWORD ExportAddr = GetExportAddress(ImportedModule, ImportName, ExportInfo);
 			if (!ExportAddr) return false;

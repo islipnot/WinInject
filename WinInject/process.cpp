@@ -1,3 +1,5 @@
+#pragma warning(disable: 6387)
+
 #include "pch.hpp"
 #include "mMap.hpp"
 #include "process.hpp"
@@ -47,30 +49,70 @@ bool GetLoadedModules()
 	return true;
 }
 
-bool RemoteMapModule(const DLL_DATA* dll)
+bool RemoteMapModule(DLL_DATA* dll)
 {
 	const SECTION_HEADER* section = dll->FirstSection;
 
-	if (!WPM(hProcess, dll->pRemoteBase, dll->pLocalBase, dll->NtHeader->OptionalHeader.SizeOfHeaders))
+	if (!WPM(dll->pRemoteBase, dll->pLocalBase, dll->NtHeader->OptionalHeader.SizeOfHeaders))
 	{
 		NERR_OUT("Failed to map PE headers for: " << dll->DllPath);
 		return false;
 	}
 
-	for (int i = 0; i < dll->SectionCount; ++section, ++i)
+	for (UINT i = 0; i < dll->SectionCount; ++section, ++i)
 	{
 		void* LocalSectionBase = reinterpret_cast<void*>(dll->LocalBase + section->PointerToRawData);
 		void* RemoteSectionBase = reinterpret_cast<void*>(dll->RemoteBase + section->VirtualAddress);
 		const UINT SizeOfRawData = section->SizeOfRawData;
 
-		if (SizeOfRawData && !WPM(hProcess, RemoteSectionBase, LocalSectionBase, SizeOfRawData))
+		if (SizeOfRawData && !WPM(RemoteSectionBase, LocalSectionBase, SizeOfRawData))
 		{
 			NERR_OUT("Failed to map section: " << section->Name);
 			return false;
 		}
 	}
 
+	dll->flags |= ManualMapped;
+
 	DNDBG_OUT("DLL mapped: " << dll->DllName);
+	return true;
+}
+
+bool RunDllMain(DLL_DATA& dll)
+{
+	BYTE shellcode[] =
+	{
+		0x6A, 0x00,       // push 0 (lpvReserved)
+		0x6A, 0x01,       // push 1 (fdwReason / DLL_PROCESS_ATTACH)
+		0x68, 0, 0, 0, 0, // push 0 (hinstDLL)
+		0xE8, 0, 0, 0, 0, // call 0 (DllMain)
+		0xC2, 0x04, 0x00  // ret 4
+	};
+
+	void* RemoteShell = VirtualAllocExFill(sizeof(shellcode), PAGE_EXECUTE_READWRITE);
+	const DWORD EntryPoint = dll.NtHeader->OptionalHeader.AddressOfEntryPoint + dll.RemoteBase;
+	if (!EntryPoint) return true;
+
+	*reinterpret_cast<DWORD*>(shellcode + 5)  = dll.RemoteBase; // hinstDLL
+	*reinterpret_cast<DWORD*>(shellcode + 10) = EntryPoint - (reinterpret_cast<DWORD>(RemoteShell) + 14); // EP
+
+	if (!WPM(RemoteShell, shellcode, sizeof(shellcode)))
+	{
+		ERR_OUT("Failed to write shellcode to process!\n");
+		return false;
+	}
+
+	DNDBG_OUT("DLL/EP: " << dll.DllName << "/0x" << HEX(EntryPoint));
+	
+	HANDLE thread = CreateRemoteThreadFill(RemoteShell, nullptr);
+	if (WaitForSingleObject(thread, 1500) != WAIT_OBJECT_0)
+	{
+		NERR_OUT("Failed to run DllMain for: " << dll.DllPath);
+		CloseHandle(thread);
+		return false;
+	}
+
+	CloseHandle(thread);
 	return true;
 }
 
@@ -134,14 +176,14 @@ bool LoadLibInject(PCWSTR DllPath)
 {
 	const size_t PathSize = wcslen(DllPath);
 
-	void* DllBuffer = VirtualAllocExFill(hProcess, PathSize, PAGE_READWRITE);
+	void* DllBuffer = VirtualAllocExFill(PathSize, PAGE_READWRITE);
 	if (!DllBuffer)
 	{
 		CERR_OUT("VirtualAllocEx failed!");
 		return false;
 	}
 
-	if (!WPM(hProcess, DllBuffer, DllPath, PathSize))
+	if (!WPM(DllBuffer, DllPath, PathSize))
 	{
 		CERR_OUT("WriteProcessMemory failed!");
 		return false;

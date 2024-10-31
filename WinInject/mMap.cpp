@@ -71,7 +71,7 @@ bool ManualMapDll(const char* path)
 		if (dll.flags & (RemoteLoaded | RedirectModule))
 			continue;
 
-		void* RemoteBase = VirtualAllocExFill(hProcess, dll.NtHeader->OptionalHeader.SizeOfImage, PAGE_EXECUTE_READWRITE);
+		void* RemoteBase = VirtualAllocExFill(dll.NtHeader->OptionalHeader.SizeOfImage, PAGE_EXECUTE_READWRITE);
 
 		if (!RemoteBase)
 		{
@@ -98,7 +98,7 @@ bool ManualMapDll(const char* path)
 			return false;
 	}
 
-	DBG_OUT("> Writing modules into target memory\n\n");
+	DBG_OUT("> Writing DLLs to target memory\n\n");
 
 	for (DLL_DATA& dll : modules)
 	{
@@ -106,6 +106,17 @@ bool ManualMapDll(const char* path)
 			continue;
 
 		if (!RemoteMapModule(&dll))
+			return false;
+	}
+
+	DBG_OUT("> Running DllMain for manual mapped DLLs\n\n");
+
+	for (int i = modules.size() - 1; i >= 0; --i)
+	{
+		if (!(modules[i].flags & ManualMapped))
+			continue;
+
+		if (!RunDllMain(modules[i]))
 			return false;
 	}
 

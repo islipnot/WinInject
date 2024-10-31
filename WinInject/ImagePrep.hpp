@@ -1,5 +1,7 @@
 #pragma once
 
+#define IMG_PREP_INCLUDED
+
 // Structs
 
 struct RELOC_ENTRY

@@ -1,5 +1,6 @@
 #include "pch.hpp"
 #include "mMap.hpp"
+#include "ImagePrep.hpp"
 #include "helpers.hpp"
 #include "ModuleResolve.hpp"
 
@@ -38,7 +39,7 @@ DWORD GetMappedAddress(const DLL_DATA* DllData, DWORD VirtAddress, DWORD base)
 
 int FindModuleEntry(const char* name, DLL_DATA** buffer, bool LoadImageLocally)
 {
-	for (int i = 0; i < modules.size(); ++i)
+	for (UINT i = 0; i < modules.size(); ++i)
 	{
 		DLL_DATA* dll = &modules[i];
 
@@ -78,4 +79,13 @@ void CreateUnicodeString(const char* str, UNICODE_STRING* uStr)
 	uStr->MaximumLength = uStr->Length + sizeof(WCHAR);
 
 	mbstowcs(Buffer, str, StringSz);
+}
+
+void GetExportInfo(DLL_DATA* dll, EXPORT_INFO* ExportInfo)
+{
+	ExportInfo->ExportDir    = &GetDataDirectory(dll->NtHeader, DIRECTORY_ENTRY_EXPORT);
+	ExportInfo->ExportTable  = GetMappedVA<EXPORT_DIRECTORY*>(dll, ExportInfo->ExportDir->VirtualAddress);
+	ExportInfo->NameTable    = GetMappedRVA<DWORD*>(dll, ExportInfo->ExportTable->AddressOfNames);
+	ExportInfo->OrdinalTable = GetMappedRVA<WORD*> (dll, ExportInfo->ExportTable->AddressOfNameOrdinals);
+	ExportInfo->EAT          = GetMappedRVA<DWORD*>(dll, ExportInfo->ExportTable->AddressOfFunctions);
 }

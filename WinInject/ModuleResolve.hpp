@@ -5,11 +5,11 @@
 enum STRING_MASKS // ApiSetResolveToHost
 {
 	API_MASK_HIGH = 0x0FFFFFFDF,
-	API_MASK_LOW = 0x0FFDFFFDF,
-	API_HIGH = 0x0002D0049, // "AP"
-	API_LOW = 0x000500041, // "I" (following char isn't checked)
-	EXT_HIGH = 0x0002D0054, // "T" (following char isn't checked)
-	EXT_LOW = 0x000580045, // "EX"
+	API_MASK_LOW  = 0x0FFDFFFDF,
+	API_HIGH      = 0x0002D0049, // "AP"
+	API_LOW       = 0x000500041, // "I" (following char isn't checked)
+	EXT_HIGH      = 0x0002D0054, // "T" (following char isn't checked)
+	EXT_LOW       = 0x000580045, // "EX"
 };
 
 // Structs
