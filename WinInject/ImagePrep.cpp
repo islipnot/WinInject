@@ -18,20 +18,23 @@ bool RelocateImage(const DLL_DATA* image)
 
 	// While loop goes through each relocation block
 
+	int applied_relocs = 0;
+
 	while (reinterpret_cast<BYTE*>(RelocTable) < RelocTableEnd)
 	{
 		RELOC_ENTRY* RelocEntry = reinterpret_cast<RELOC_ENTRY*>(RelocTable + 1);
-		RELOC_ENTRY* BlockEnd = reinterpret_cast<RELOC_ENTRY*>((RelocTable->SizeOfBlock - sizeof(BASE_RELOCATION)) >> 1);
+		RELOC_ENTRY* BlockEnd = reinterpret_cast<RELOC_ENTRY*>(((RelocTable->SizeOfBlock - sizeof(BASE_RELOCATION)) >> 1) + RelocEntry);
 
 		// Applying relocation to each entry in the block
 
 		while (RelocEntry < BlockEnd) // Only ABSOLUTE/HIGHLOW are dealt with, I have not seen a single other type in a PE32 file
 		{
-			if (RelocEntry->Type == IMAGE_REL_BASED_ABSOLUTE)
-				continue;
-
-			DWORD* RelocAddress = GetMappedVA<DWORD*>(image, RelocTable->VirtualAddress + RelocEntry->Offset);
-			*RelocAddress += BaseDifference;
+			if (RelocEntry->Type != IMAGE_REL_BASED_ABSOLUTE)
+			{
+				DWORD* RelocAddress = GetMappedVA<DWORD*>(image, RelocTable->VirtualAddress + RelocEntry->Offset);
+				*RelocAddress += BaseDifference;
+				++applied_relocs;
+			}
 
 			++RelocEntry;
 		}
@@ -39,7 +42,7 @@ bool RelocateImage(const DLL_DATA* image)
 		RelocTable = reinterpret_cast<BASE_RELOCATION*>(reinterpret_cast<BYTE*>(RelocTable) + RelocTable->SizeOfBlock);
 	}
 
-	DNDBG_OUT("Image relocated: " << image->DllName);
+	DNDBG_OUT("Image relocated: " << image->DllName << " (" << applied_relocs << ')');
 	return true;
 }
 
