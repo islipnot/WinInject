@@ -193,7 +193,7 @@ bool InsertModuleEntry(const char* DllName)
 	DLL_DATA* ExistingEntry = nullptr;
 	const UINT ExistingEntryIndex = FindModuleEntry(DllName, &ExistingEntry);
 
-	if (ExistingEntry != nullptr && (ExistingEntry->flags & (RedirectModule | LocalLoaded)) != 0)
+	if (ExistingEntry != nullptr && ExistingEntry->flags & (RedirectModule | LocalLoaded))
 	{
 		return true;
 	}
@@ -250,12 +250,15 @@ bool InsertModuleEntry(const char* DllName)
 			return false;
 		}
 	}
-	else if (!ModuleEntry.LocalBase && !LoadDll(ModuleEntry.DllPath.c_str(), &ModuleEntry))
+	else if (!IsApiSet)
 	{
-		return false;
-	}
+		if (!ModuleEntry.LocalBase && !LoadDll(ModuleEntry.DllPath.c_str(), &ModuleEntry))
+		{
+			return false;
+		}
 
-	ModuleEntry.flags |= LocalLoaded;
+		ModuleEntry.flags |= LocalLoaded;
+	}
 
 	if (ExistingEntry) *ExistingEntry = ModuleEntry;
 	else modules.emplace_back(ModuleEntry);

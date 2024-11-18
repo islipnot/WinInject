@@ -4,13 +4,21 @@
 	#include "ImagePrep.hpp"
 #endif
 
+// Enums
+
+enum EntryLocationFlags
+{
+	LocalLoadImage = 1,
+	ReturnApiHost  = 2
+};
+
 // Forward declarations
 
 UINT PathToFileOffset(const std::string& path);
 
 DWORD GetMappedAddress(const DLL_DATA* DllData, DWORD VirtAddress, DWORD base);
 
-int FindModuleEntry(const char* name, DLL_DATA** buffer, bool LoaedImageLocally = false);
+int FindModuleEntry(const char* name, DLL_DATA** buffer, int flags = NULL);
 
 void CreateUnicodeString(const char* str, UNICODE_STRING* uStr);
 
@@ -32,9 +40,9 @@ template <typename ret = DWORD> auto GetRemoteMappedAddress(const DLL_DATA* DllD
 
 /* RVA/VA resolution */
 
-#define GetMappedRVA  GetLocalMappedAddress
+#define GetMappedRVA GetLocalMappedAddress
 
-#define GetMappedVA   GetLocalMappedAddress
+#define GetMappedVA  GetLocalMappedAddress
 
 /* General macros */
 

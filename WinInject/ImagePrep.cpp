@@ -74,7 +74,7 @@ DWORD GetExportAddress(DLL_DATA* dll, const char* TargetName, EXPORT_INFO& info)
 		}
 
 		DLL_DATA* ForwarderEntry = nullptr;
-		if (FindModuleEntry(forwarder.c_str(), &ForwarderEntry, true) == -1)
+		if (FindModuleEntry(forwarder.c_str(), &ForwarderEntry, ReturnApiHost | LocalLoadImage) == -1)
 		{
 			return 0;
 		}
@@ -104,7 +104,7 @@ bool SnapImports(const DLL_DATA* image)
 		const char* DllName = GetMappedRVA<const char*>(image, ImportDir->Name);
 
 		DLL_DATA* ImportedModule = nullptr;
-		if (FindModuleEntry(DllName, &ImportedModule, true) == -1)
+		if (FindModuleEntry(DllName, &ImportedModule, ReturnApiHost | LocalLoadImage) == -1)
 		{
 			NERR_OUT("Failed to locate imported module post dependency resolution: " << DllName);
 			return false;

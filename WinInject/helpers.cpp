@@ -37,7 +37,7 @@ DWORD GetMappedAddress(const DLL_DATA* DllData, DWORD VirtAddress, DWORD base)
 	__fastfail(FAST_FAIL_INVALID_ARG); // done so that error handling isnt required on every call to GetMappedAddress
 }
 
-int FindModuleEntry(const char* name, DLL_DATA** buffer, bool LoadImageLocally)
+int FindModuleEntry(const char* name, DLL_DATA** buffer, int flags)
 {
 	for (UINT i = 0; i < modules.size(); ++i)
 	{
@@ -48,10 +48,14 @@ int FindModuleEntry(const char* name, DLL_DATA** buffer, bool LoadImageLocally)
 			if (dll->flags & RedirectModule)
 			{
 				i = dll->HostIndex;
-				dll = &modules[i];
+
+				if (flags & ReturnApiHost)
+				{
+					dll = &modules[i];
+				}
 			}
 			
-			if (LoadImageLocally && !dll->FirstSection)
+			if (flags & LocalLoadImage && !dll->FirstSection)
 			{
 				dll->DllPath.reserve(MAX_PATH);
 

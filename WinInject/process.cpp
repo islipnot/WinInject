@@ -102,7 +102,7 @@ bool RunDllMain(DLL_DATA& dll)
 		return false;
 	}
 
-	DNDBG_OUT("DLL/EP: " << dll.DllName << "/0x" << HEX(EntryPoint));
+	DNDBG_OUT("DLL/EP: " << dll.DllName << "/0x" << HEX(RemoteShell));
 	
 	HANDLE thread = CreateRemoteThreadFill(RemoteShell, nullptr);
 	if (WaitForSingleObject(thread, 1500) != WAIT_OBJECT_0)
