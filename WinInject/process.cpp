@@ -80,34 +80,80 @@ bool RemoteMapModule(DLL_DATA* dll)
 
 bool RunDllMain(DLL_DATA& dll)
 {
-	BYTE shellcode[] =
-	{
-		0x6A, 0x00,       // push 0 (lpvReserved)
-		0x6A, 0x01,       // push 1 (fdwReason / DLL_PROCESS_ATTACH)
-		0x68, 0, 0, 0, 0, // push 0 (hinstDLL)
-		0xE8, 0, 0, 0, 0, // call 0 (DllMain)
-		0xC2, 0x04, 0x00  // ret 4
-	};
-
-	void* RemoteShell = VirtualAllocExFill(sizeof(shellcode), PAGE_EXECUTE_READWRITE);
-	const DWORD EntryPoint = dll.NtHeader->OptionalHeader.AddressOfEntryPoint + dll.RemoteBase;
+	DWORD EntryPoint = dll.NtHeader->OptionalHeader.AddressOfEntryPoint;
 	if (!EntryPoint) return true;
 
-	*reinterpret_cast<DWORD*>(shellcode + 5)  = dll.RemoteBase; // hinstDLL
-	*reinterpret_cast<DWORD*>(shellcode + 10) = EntryPoint - (reinterpret_cast<DWORD>(RemoteShell) + 14); // EP
-
-	if (!WPM(RemoteShell, shellcode, sizeof(shellcode)))
+	static BYTE shellcode[] =
 	{
-		ERR_OUT("Failed to write shellcode to process!\n");
+		0xE8, 0, 0, 0, 0, // call TlsAlloc
+		0xB9, 0, 0, 0, 0, // mov ecx, AddressOfIndex
+		0x89, 0x01,       // mov [ecx], eax
+		0x6A, 0x00,       // push 0 (lpvReserved)
+		0x6A, 0x01,       // push 1 (fdwReason / DLL_PROCESS_ATTACH)
+		0x68, 0, 0, 0, 0, // push hinstDLL
+		0xE8, 0, 0, 0, 0, // call DllMain
+		0xC2, 0x04, 0x00, // ret 4
+	};
+
+	// Allocating memory for shellcode
+
+	static void* ShellAddress = VirtualAllocExFill(sizeof(shellcode), PAGE_EXECUTE_READWRITE);
+
+	EntryPoint += dll.RemoteBase;
+	EntryPoint -= (reinterpret_cast<DWORD>(ShellAddress) + 26);
+
+	const BYTE* pShell = shellcode;
+	DWORD ShellSize = sizeof(shellcode);
+
+	// Getting the address of TlsAlloc in the target process if there is a .tls section
+
+	const DWORD TlsDirectoryVA = GetDataDirectory(dll.NtHeader, DIRECTORY_ENTRY_TLS).VirtualAddress;
+
+	if (TlsDirectoryVA)
+	{
+		static HMODULE kernelbase = nullptr;
+
+		if (!kernelbase)
+		{
+			kernelbase = GetModuleHandle(L"KernelBase.dll");
+			DWORD pTlsAlloc = reinterpret_cast<DWORD>(GetProcAddress(kernelbase, "TlsAlloc"));
+
+			DLL_DATA* KernelBaseEntry = nullptr;
+			FindModuleEntry("KernelBase.dll", &KernelBaseEntry);
+
+			pTlsAlloc = ((pTlsAlloc - reinterpret_cast<DWORD>(kernelbase)) + KernelBaseEntry->RemoteBase) - (reinterpret_cast<DWORD>(ShellAddress) + 5);
+			memcpy(&shellcode[1], &pTlsAlloc, sizeof(DWORD));
+		}
+
+		TLS_DIRECTORY* TlsDirectory = GetMappedVA<TLS_DIRECTORY*>(&dll, TlsDirectoryVA);
+		memcpy(&shellcode[6], &TlsDirectory->AddressOfIndex, sizeof(DWORD));
+	}
+	else
+	{
+		pShell += 12;
+		ShellSize -= 12;
+		EntryPoint += 12;
+	}
+
+	// Setting hinstDLL/DllMain
+
+	memcpy(&shellcode[17], &dll.RemoteBase, sizeof(DWORD)); // hinstDLL
+	memcpy(&shellcode[22], &EntryPoint,     sizeof(DWORD)); // DllMain
+
+	// Writing shellcode into memory
+
+	if (!WPM(ShellAddress, pShell, ShellSize))
+	{
+		ERR_OUT("Failed to write shellcode to memory!\n");
 		return false;
 	}
 
-	DNDBG_OUT("DLL/EP: " << dll.DllName << "/0x" << HEX(RemoteShell));
-	
-	HANDLE thread = CreateRemoteThreadFill(RemoteShell, nullptr);
+	DNDBG_OUT("DLL/EP: " << dll.DllName << "/0x" << HEX(ShellAddress));
+
+	HANDLE thread = CreateRemoteThreadFill(ShellAddress, nullptr);
 	if (WaitForSingleObject(thread, 1500) != WAIT_OBJECT_0)
 	{
-		NERR_OUT("Failed to run DllMain for: " << dll.DllPath);
+		NERR_OUT("Failed to execute DllMain for: " << dll.DllPath);
 		CloseHandle(thread);
 		return false;
 	}
