@@ -92,7 +92,7 @@ bool RunDllMain(DLL_DATA& dll)
 		0x6A, 0x01,       // push 1 (fdwReason / DLL_PROCESS_ATTACH)
 		0x68, 0, 0, 0, 0, // push hinstDLL
 		0xE8, 0, 0, 0, 0, // call DllMain
-		0xC2, 0x04, 0x00, // ret 4
+		0xC2, 0x04, 0x00  // ret 4
 	};
 
 	// Allocating memory for shellcode
