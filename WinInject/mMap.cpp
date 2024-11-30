@@ -43,6 +43,7 @@ bool LoadDll(const char* path, DLL_DATA* DllData)
 	}
 
 	DllData->pLocalBase = base;
+	DllData->flags |= LocalLoaded;
 
 	DBG_OUT("Success!\n\n");
 	return true;

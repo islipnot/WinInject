@@ -2,6 +2,7 @@
 #include "mMap.hpp"
 #include "ImagePrep.hpp"
 #include "helpers.hpp"
+#include "ModuleResolve.hpp"
 
 bool RelocateImage(const DLL_DATA* image)
 {
@@ -79,7 +80,19 @@ DWORD GetExportAddress(DLL_DATA* dll, const char* TargetName, EXPORT_INFO& info)
 		DLL_DATA* ForwarderEntry = nullptr;
 		if (FindModuleEntry(forwarder.c_str(), &ForwarderEntry, ReturnApiHost | LocalLoadImage) == -1)
 		{
-			return 0;
+			if (!InsertModuleEntry(forwarder.c_str()))
+			{
+				return 0;
+			}
+			else
+			{
+				ForwarderEntry = &modules.back();
+
+				if (ForwarderEntry->flags & RedirectModule)
+				{
+					ForwarderEntry = &modules[ForwarderEntry->HostIndex];
+				}
+			}
 		}
 
 		forwarder = ExportName;

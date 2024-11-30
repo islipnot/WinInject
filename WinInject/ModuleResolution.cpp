@@ -81,6 +81,8 @@ bool GetModulePath(const char* DllName, char* ResolvedPath)
 
 NAMESPACE_ENTRY* ApiSetpSearchForApiSet(NAMESPACE_HEADER* ApiSetMap, PWSTR ApiName, UINT16 ApiSubNameSz)
 {
+	// Based on ntdll.dll!ApiSetpSearchForApiSet
+
 	DWORD ApiHash = 0;
 
 	if (ApiSubNameSz) // Hashing API Set name
@@ -140,6 +142,8 @@ NAMESPACE_ENTRY* ApiSetpSearchForApiSet(NAMESPACE_HEADER* ApiSetMap, PWSTR ApiNa
 
 bool ApiSetResolveToHost(const UNICODE_STRING* ApiName, std::string* HostName)
 {
+	// Based on ntdll.dll!ApiSetResolveToHost
+
 	static NAMESPACE_HEADER* ApiSetMap = GetApiSetMap();
 	const UINT NameLen = static_cast<UINT>(ApiName->Length);
 
@@ -233,6 +237,11 @@ bool InsertModuleEntry(const char* DllName)
 		{
 			ModuleEntry.HostIndex = HostEntryIndex;
 		}
+
+		if (!(HostEntry->flags & LocalLoaded) && (!GetModulePath(HostEntry->DllName.c_str(), HostEntry->DllPath.data()) || !LoadDll(HostEntry->DllPath.c_str(), HostEntry)))
+		{
+			return 0;
+		}
 	}
 	else if (!GetModulePath(DllName, ModuleEntry.DllPath.data()))
 	{
@@ -250,14 +259,9 @@ bool InsertModuleEntry(const char* DllName)
 			return false;
 		}
 	}
-	else if (!IsApiSet)
+	else if (!IsApiSet && !ModuleEntry.LocalBase && !LoadDll(ModuleEntry.DllPath.c_str(), &ModuleEntry))
 	{
-		if (!ModuleEntry.LocalBase && !LoadDll(ModuleEntry.DllPath.c_str(), &ModuleEntry))
-		{
-			return false;
-		}
-
-		ModuleEntry.flags |= LocalLoaded;
+		return false;
 	}
 
 	if (ExistingEntry) *ExistingEntry = ModuleEntry;

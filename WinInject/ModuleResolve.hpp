@@ -54,4 +54,6 @@ struct HASH_ENTRY // https://www.geoffchappell.com/studies/windows/win32/apisets
 
 bool GetModulePath(const char* DllName, char* ResolvedPath);
 
+bool InsertModuleEntry(const char* DllName);
+
 bool ResolveDependencies(UINT index);
