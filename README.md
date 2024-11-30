@@ -4,7 +4,7 @@
 - Multiple assumptions regarding the injected DLLs are made. [WinLoad](https://github.com/islipnot/WinLoad), another project of mine, is a much more accurate and detailed representation of the image loader.
 - Manual mapping logic is based on my findings when reversing the image loader.
 
-# Usage
+## Usage
 
 - Argument format: &lt;TargetProcess&gt; &lt;DllPath&gt; &lt;Flags&gt;
 - TargetProcess must end in .exe
