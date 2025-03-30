@@ -105,35 +105,9 @@ bool RunDllMain(DLL_DATA& dll)
 	const BYTE* pShell = shellcode;
 	DWORD ShellSize = sizeof(shellcode);
 
-	// Getting the address of TlsAlloc in the target process if there is a .tls section
-
-	const DWORD TlsDirectoryVA = GetDataDirectory(dll.NtHeader, DIRECTORY_ENTRY_TLS).VirtualAddress;
-
-	if (TlsDirectoryVA)
-	{
-		static HMODULE kernelbase = nullptr;
-
-		if (!kernelbase)
-		{
-			kernelbase = GetModuleHandle(L"KernelBase.dll");
-			DWORD pTlsAlloc = reinterpret_cast<DWORD>(GetProcAddress(kernelbase, "TlsAlloc"));
-
-			DLL_DATA* KernelBaseEntry = nullptr;
-			FindModuleEntry("KernelBase.dll", &KernelBaseEntry);
-
-			pTlsAlloc = ((pTlsAlloc - reinterpret_cast<DWORD>(kernelbase)) + KernelBaseEntry->RemoteBase) - (reinterpret_cast<DWORD>(ShellAddress) + 5);
-			memcpy(&shellcode[1], &pTlsAlloc, sizeof(DWORD));
-		}
-
-		TLS_DIRECTORY* TlsDirectory = GetMappedVA<TLS_DIRECTORY*>(&dll, TlsDirectoryVA);
-		memcpy(&shellcode[6], &TlsDirectory->AddressOfIndex, sizeof(DWORD));
-	}
-	else
-	{
-		pShell += 12;
-		ShellSize -= 12;
-		EntryPoint += 12;
-	}
+	pShell += 12;
+	ShellSize -= 12;
+	EntryPoint += 12;
 
 	// Setting hinstDLL/DllMain
 
